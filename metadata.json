@@ -1,0 +1,6 @@
+{
+  "name": "Olit Concept",
+  "description": "Premium 3D interactive landing page for Olit Concept - luxury smartphone sales, premium accessories retail, and expert phone repair brand.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
