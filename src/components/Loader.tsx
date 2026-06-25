@@ -105,7 +105,6 @@ export function Loader({ onComplete }: LoaderProps) {
               src="https://i.ibb.co/cHzPLT9/IMG-20260602-WA0011.jpg" 
               alt="Olit Concept Logo" 
               className="w-12 h-12 rounded-xl object-cover border border-cyber-cyan/45 shadow-[0_0_20px_rgba(0,240,255,0.25)]"
-              referrerPolicy="no-referrer"
             />
             <span className="font-display text-2xl font-black tracking-wider text-white uppercase">
               OLIT<span className="text-cyber-cyan">CONCEPT</span>

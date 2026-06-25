@@ -3,11 +3,9 @@ import { Menu, X, Smartphone, ShoppingCart, Search, Compass, Ticket, Check, MapP
 
 interface NavbarProps {
   onQuoteTrigger: () => void;
-  onShowroomDevices: () => void;
-  onShowroomAccessories: () => void;
 }
 
-export function Navbar({ onQuoteTrigger, onShowroomDevices, onShowroomAccessories }: NavbarProps) {
+export function Navbar({ onQuoteTrigger }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -49,8 +47,8 @@ export function Navbar({ onQuoteTrigger, onShowroomDevices, onShowroomAccessorie
   };
 
   const navLinks = [
-    { name: 'Buy Phones', action: onShowroomDevices },
-    { name: 'Explore Accessories', action: onShowroomAccessories },
+    { name: 'Shop Catalog', href: '#order-section' },
+    { name: 'Price Guide', href: '#price-guide' },
     { name: 'Book a Repair', href: '#repair-engine' },
     { name: 'Track Order', action: () => setTrackOpen(true) },
   ];
@@ -73,7 +71,6 @@ export function Navbar({ onQuoteTrigger, onShowroomDevices, onShowroomAccessorie
                 src="https://i.ibb.co/cHzPLT9/IMG-20260602-WA0011.jpg" 
                 alt="Olit Concept Logo" 
                 className="w-10 h-10 rounded-xl object-cover border border-cyber-cyan/30 shadow-[0_0_15px_rgba(0,240,255,0.15)] group-hover:border-cyber-cyan/60 group-hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all duration-300"
-                referrerPolicy="no-referrer"
               />
               <span className="font-display text-lg sm:text-xl font-black tracking-widest text-white uppercase group-hover:text-cyber-cyan transition-colors duration-200">
                 OLIT<span className="text-cyber-cyan">CONCEPT</span>

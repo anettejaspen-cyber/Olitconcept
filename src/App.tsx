@@ -8,14 +8,15 @@ import { Loader } from './components/Loader';
 import { Navbar } from './components/Navbar';
 import { Hero3DCanvas } from './components/Hero3DCanvas';
 import { RepairEngine } from './components/RepairEngine';
-import { ShowroomGrid } from './components/ShowroomGrid';
-import { SocialVibeGrid } from './components/SocialVibeGrid';
+import { OrderSection } from './components/OrderSection';
+import { IPhonePriceGuide } from './components/IPhonePriceGuide';
+import { GallerySection } from './components/GallerySection';
 import { TrustAndFooter } from './components/TrustAndFooter';
-import { Sparkle, ShieldCheck, ArrowRight, Star, Cpu } from 'lucide-react';
+import { WhatsAppButton } from './components/WhatsAppButton';
+import { Sparkle, ShieldCheck, ArrowRight, Star, Cpu, ArrowUp } from 'lucide-react';
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
-  const [showroomTab, setShowroomTab] = useState<'devices' | 'accessories'>('devices');
 
   // Trigger dynamic navigation to respective sections
   const scrollToSection = (id: string) => {
@@ -25,14 +26,8 @@ export default function App() {
     }
   };
 
-  const handleShowroomDevices = () => {
-    setShowroomTab('devices');
-    setTimeout(() => scrollToSection('showroom'), 100);
-  };
-
-  const handleShowroomAccessories = () => {
-    setShowroomTab('accessories');
-    setTimeout(() => scrollToSection('showroom'), 100);
+  const handlePriceGuideTrigger = () => {
+    scrollToSection('price-guide');
   };
 
   const handleQuoteTrigger = () => {
@@ -62,6 +57,24 @@ export default function App() {
     return () => window.removeEventListener('scroll', handleScrollFade);
   }, [isLoading]);
 
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  // Toggle "Back to Top" visibility when scrolling past 400px
+  useEffect(() => {
+    if (isLoading) return;
+
+    const handleScrollButtonVisibility = () => {
+      if (window.scrollY > 400) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScrollButtonVisibility);
+    return () => window.removeEventListener('scroll', handleScrollButtonVisibility);
+  }, [isLoading]);
+
   if (isLoading) {
     return <Loader onComplete={() => setIsLoading(false)} />;
   }
@@ -78,8 +91,6 @@ export default function App() {
       {/* Sticky blurred glassmorphism Navbar */}
       <Navbar 
         onQuoteTrigger={handleQuoteTrigger}
-        onShowroomDevices={handleShowroomDevices}
-        onShowroomAccessories={handleShowroomAccessories}
       />
 
       {/* HERO SECTION CONTAINER */}
@@ -132,10 +143,10 @@ export default function App() {
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </button>
                 <button
-                  onClick={handleShowroomDevices}
+                  onClick={handlePriceGuideTrigger}
                   className="px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white font-mono text-xs uppercase tracking-wider text-center transition-all cursor-pointer"
                 >
-                  Explore Showroom
+                  View Price Guide
                 </button>
               </div>
 
@@ -174,21 +185,39 @@ export default function App() {
         <RepairEngine />
       </section>
 
-      {/* SECTION 2: LUXURY RETAIL HARDWARE CARRELS */}
+      {/* SECTION 2: CATALOG SHOP ORDER SECTION */}
       <section className="scroll-fade-in opacity-0 translate-y-8 transition-all duration-700 ease-out">
-        <ShowroomGrid 
-          activeTab={showroomTab}
-          setActiveTab={setShowroomTab}
-        />
+        <OrderSection />
       </section>
 
-      {/* SECTION 3: SOCIAL UNBOXINGS FEED & TESTIMONIALS */}
+      {/* SECTION 2.5: INTERACTIVE IPHONE PRICE GUIDE */}
       <section className="scroll-fade-in opacity-0 translate-y-8 transition-all duration-700 ease-out">
-        <SocialVibeGrid />
+        <IPhonePriceGuide />
+      </section>
+
+      {/* SECTION 3: MULTIMEDIA VIDEO GALLERY */}
+      <section className="scroll-fade-in opacity-0 translate-y-8 transition-all duration-700 ease-out">
+        <GallerySection />
       </section>
 
       {/* SECTION 4: TRUST SIGNALS & FOOTERS */}
       <TrustAndFooter />
+
+      {/* BACK TO TOP FLOATING ACTION BUTTON */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 p-2.5 sm:p-3.5 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-110 active:scale-95 cursor-pointer ${
+          showBackToTop 
+            ? 'opacity-100 translate-y-0 pointer-events-auto' 
+            : 'opacity-0 translate-y-4 pointer-events-none'
+        }`}
+        aria-label="Back to top"
+      >
+        <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 text-rose-500 dark:text-cyber-cyan transition-transform duration-300 group-hover:-translate-y-1" />
+      </button>
+
+      {/* FLOATING WHATSAPP CHAT CONCIERGE BUTTON */}
+      <WhatsAppButton />
     </div>
   );
 }

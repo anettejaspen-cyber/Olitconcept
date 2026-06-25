@@ -93,7 +93,6 @@ export function TrustAndFooter() {
                 src="https://i.ibb.co/cHzPLT9/IMG-20260602-WA0011.jpg" 
                 alt="Olit Concept Logo" 
                 className="w-10 h-10 rounded-xl object-cover border border-cyber-cyan/30 shadow-[0_0_15px_rgba(0,240,255,0.15)]"
-                referrerPolicy="no-referrer"
               />
               <span className="font-display text-xl font-black tracking-widest uppercase text-white hover:text-cyber-cyan transition-colors">
                 OLIT<span className="text-cyber-cyan">CONCEPT</span>
