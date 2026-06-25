@@ -17,7 +17,7 @@ export function WhatsAppButton() {
     return () => clearTimeout(timer);
   }, [isOpen]);
 
-  const WHATSAPP_NUMBER = '18006548266'; // OLIT-CON HQ Support Line (International Format)
+  const WHATSAPP_NUMBER = '2348130060812'; // OLIT-CON HQ Support Line (International Format)
 
   const handleQuickInquiry = (type: 'order' | 'repair' | 'tech') => {
     let message = '';

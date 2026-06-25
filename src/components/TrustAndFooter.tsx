@@ -8,10 +8,12 @@ import {
   MapPin, 
   Clock, 
   Instagram, 
+  Video,
   Youtube, 
   Globe, 
   Sparkles, 
-  Send 
+  Send,
+  User
 } from 'lucide-react';
 
 export function TrustAndFooter() {
@@ -105,11 +107,11 @@ export function TrustAndFooter() {
 
             <div className="space-y-4 pt-4">
               <div className="flex items-start space-x-3.5">
-                <MapPin className="w-5 h-5 text-cyber-cyan shrink-0 mt-0.5" />
+                <User className="w-5 h-5 text-cyber-cyan shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Showroom HQ Address</h4>
-                  <p className="font-sans text-xs text-white/60 mt-1">
-                    99 Cyber Plaza, Luxury Retail Concourse, Sector 7-X, London
+                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">CEO</h4>
+                  <p className="font-sans text-xs font-bold text-white/95 mt-1">
+                    ADELAKIN AYUBA A.
                   </p>
                 </div>
               </div>
@@ -117,9 +119,10 @@ export function TrustAndFooter() {
               <div className="flex items-start space-x-3.5">
                 <Phone className="w-5 h-5 text-[#10b981] shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Secure Direct Line</h4>
-                  <p className="font-mono text-xs text-white/60 mt-1">
-                    +1-800-OLIT-CON (654-8266)
+                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Direct Lines</h4>
+                  <p className="font-mono text-xs text-white/60 mt-1 flex flex-col space-y-1">
+                    <a href="tel:08130060812" className="hover:text-cyber-green transition-colors">08130060812</a>
+                    <a href="tel:09161468759" className="hover:text-cyber-green transition-colors">09161468759</a>
                   </p>
                 </div>
               </div>
@@ -127,49 +130,63 @@ export function TrustAndFooter() {
               <div className="flex items-start space-x-3.5">
                 <Mail className="w-5 h-5 text-cyber-blue shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Secure Tech Mailbox</h4>
-                  <p className="font-sans text-xs text-white/60 mt-1">
-                    support@olitconcept.com
-                  </p>
+                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Email Business Mailbox</h4>
+                  <a href="mailto:olitconceptbusiness@gmail.com" className="font-sans text-xs text-white/60 hover:text-cyber-cyan transition-colors mt-1 block break-all">
+                    olitconceptbusiness@gmail.com
+                  </a>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Column B: Interactive/Mock holographic Grid Maps (Span 4) */}
-          <div className="lg:col-span-4 space-y-4">
-            <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center">
-              <Clock className="w-4 h-4 text-cyber-cyan mr-1.5 animate-pulse" />
-              HQ Operation timings & Map
-            </h4>
+          {/* Column B: Physical Addresses & Timings (Span 4) */}
+          <div className="lg:col-span-4 space-y-6">
+            <div>
+              <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center">
+                <MapPin className="w-4 h-4 text-cyber-cyan mr-1.5" />
+                Our Branch Addresses
+              </h4>
+              <p className="font-sans text-xs text-white/50 leading-relaxed">
+                Connect with our showroom blocks directly for product testing, express repairs, and instant trades.
+              </p>
+            </div>
 
-            {/* Simulated Grid GPS Area Location Card */}
-            <div className="glass-panel rounded-2xl border-white/5 overflow-hidden aspect-video relative flex items-center justify-center p-4">
-              <div className="absolute inset-0 cyber-grid animate-grid-scroll opacity-30 pointer-events-none" />
-              
-              {/* Radar circular lines scanning mock position */}
-              <div className="absolute w-24 h-24 rounded-full border border-cyber-cyan/30 animate-ping" />
-              <div className="absolute w-12 h-12 rounded-full border border-cyber-blue/40 animate-pulse" />
-              
-              {/* Central pinpoint node */}
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="w-3.5 h-3.5 rounded-full bg-cyber-cyan glow-cyan flex items-center justify-center animate-bounce">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3.5">
+                <MapPin className="w-5 h-5 text-cyber-cyan shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Address 1</h4>
+                  <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">
+                    Mayfair ile ife, osun state, Nigeria
+                  </p>
                 </div>
-                <span className="px-2.5 py-1 rounded-md bg-black/90 text-[8px] font-mono text-cyber-cyan uppercase font-bold border border-white/10 mt-1.5">
-                  OLIT HQ GPS: OK
-                </span>
+              </div>
+
+              <div className="flex items-start space-x-3.5">
+                <MapPin className="w-5 h-5 text-cyber-blue shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Address 2</h4>
+                  <p className="font-sans text-xs text-white/60 mt-1 leading-relaxed">
+                    Dawaki, Abuja, Nigeria.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-1.5 font-mono text-[10px] text-white/60 uppercase">
-              <div className="flex justify-between">
-                <span>WEEKDAYS (EXPERT TECHS)</span>
-                <span className="text-white">09:00 - 21:00</span>
-              </div>
-              <div className="flex justify-between">
-                <span>WEEKENDS (RETAIL BLOCK)</span>
-                <span className="text-white">10:00 - 18:00</span>
+            <div className="pt-4 border-t border-white/5">
+              <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider mb-2 flex items-center">
+                <Clock className="w-4 h-4 text-cyber-cyan mr-1.5" />
+                HQ Operation timings
+              </h4>
+              <div className="space-y-1.5 font-mono text-[10px] text-white/60 uppercase">
+                <div className="flex justify-between">
+                  <span>WEEKDAYS (EXPERT TECHS)</span>
+                  <span className="text-white">09:00 - 21:00</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>WEEKENDS (RETAIL BLOCK)</span>
+                  <span className="text-white">10:00 - 18:00</span>
+                </div>
               </div>
             </div>
           </div>
@@ -209,15 +226,26 @@ export function TrustAndFooter() {
               )}
             </form>
 
-            <div className="flex space-x-3.5 pt-4">
-              <a href="#" className="p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-cyber-cyan hover:text-cyber-cyan text-white/60 hover:transform hover:scale-105 transition-all">
+             <div className="flex space-x-3.5 pt-4">
+              <a 
+                href="https://www.instagram.com/tayo__adelakin?igsh=MWJ6dnY0dWxpdmcxNQ%3D%3D&utm_source=qr" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-cyber-cyan hover:text-cyber-cyan text-white/60 hover:transform hover:scale-105 transition-all flex items-center justify-center gap-1.5 text-xs font-mono"
+                title="Follow Tayo Adelakin on Instagram"
+              >
                 <Instagram className="w-4 h-4" />
+                <span className="sr-only">Instagram</span>
               </a>
-              <a href="#" className="p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-cyber-cyan hover:text-cyber-cyan text-white/60 hover:transform hover:scale-105 transition-all">
-                <Youtube className="w-4 h-4" />
-              </a>
-              <a href="#" className="p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-cyber-cyan hover:text-cyber-cyan text-white/60 hover:transform hover:scale-105 transition-all">
-                <Globe className="w-4 h-4" />
+              <a 
+                href="https://www.tiktok.com/@olit.concept?_r=1&_t=ZS-96tiXB3kNfh" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="p-2.5 rounded-lg bg-white/5 border border-white/10 hover:border-cyber-cyan hover:text-cyber-cyan text-white/60 hover:transform hover:scale-105 transition-all flex items-center justify-center gap-1.5 text-xs font-mono"
+                title="Follow Olit Concept on TikTok"
+              >
+                <Video className="w-4 h-4" />
+                <span className="sr-only">TikTok</span>
               </a>
             </div>
           </div>

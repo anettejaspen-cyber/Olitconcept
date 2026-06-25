@@ -130,7 +130,7 @@ export function RepairEngine() {
       `📝 Instructions: ${notes || 'None'}`;
     
     const encodedText = encodeURIComponent(message);
-    const whatsappNum = '2348082622765'; // Authentic Olit Concept business contact number
+    const whatsappNum = '2348130060812'; // Authentic Olit Concept business contact number
     const url = `https://wa.me/${whatsappNum}?text=${encodedText}`;
     
     setWhatsAppUrl(url);

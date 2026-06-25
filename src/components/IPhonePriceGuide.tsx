@@ -60,7 +60,7 @@ export function IPhonePriceGuide() {
   ];
 
   const handleOrderWhatsApp = (item: IPhoneItem) => {
-    const whatsappNum = '2348082622765';
+    const whatsappNum = '2348130060812';
     const messageText = `Hello Olit Concept! I would like to inquire about / buy this iPhone from your Price Guide:\n\n` +
       `📱 Model: ${item.name}\n` +
       `💾 Storage: ${item.storage}\n` +
@@ -178,7 +178,7 @@ export function IPhonePriceGuide() {
               Reach out to our sales agents directly to ask about color choices, physical device snapshots, or custom orders!
             </p>
             <a
-              href="https://wa.me/2348082622765?text=Hello%20Olit%20Concept!%20I%20have%20a%20special%20smartphone%20order%20inquiry."
+              href="https://wa.me/2348130060812?text=Hello%20Olit%20Concept!%20I%20have%20a%20special%20smartphone%20order%20inquiry."
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center space-x-2 w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-md"

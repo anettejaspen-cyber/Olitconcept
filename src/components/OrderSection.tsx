@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShoppingBag, 
@@ -19,10 +19,13 @@ import {
   Cpu,
   Headphones,
   Layers,
-  Phone
+  Phone,
+  Search,
+  ChevronDown,
+  Zap,
+  SlidersHorizontal,
+  AlertCircle
 } from 'lucide-react';
-
-// No local image imports needed as we use the direct hosting URLs resolved from the postimg pages.
 
 interface Product {
   id: number;
@@ -197,14 +200,23 @@ const PRODUCTS: Product[] = [
 ];
 
 export function OrderSection() {
-  // Cart state: { [productId]: quantity }
   const [cart, setCart] = useState<{ [key: number]: number }>({});
-  // Product quantities before adding to cart: { [productId]: quantity }
-  const [quantities, setQuantities] = useState<{ [key: number]: number }>({});
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'form' | 'success'>('cart');
-  const [addedItems, setAddedItems] = useState<{ [key: number]: boolean }>({});
+  const [checkoutStep, setCheckoutStep] = useState<'review' | 'details' | 'success'>('review');
+  
+  // Quick direct single-product checkout bypass modal
+  const [directCheckoutProduct, setDirectCheckoutProduct] = useState<Product | null>(null);
+  const [directQuantity, setDirectQuantity] = useState<number>(1);
 
+  // Search, Category Filter, and Sorting
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
+
+  // Custom Toast Notification System State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
+
+  // Form Fields State
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -215,16 +227,21 @@ export function OrderSection() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  // Initialize helper quantities to 0
+  // Trigger Toast Notification Helper
+  const showToast = (message: string, type: 'success' | 'info' | 'warning' = 'success') => {
+    setToast({ message, type });
+  };
+
+  // Auto-dismiss Toast
   useEffect(() => {
-    const initialQuantities: { [key: number]: number } = {};
-    PRODUCTS.forEach(p => {
-      initialQuantities[p.id] = 0;
-    });
-    setQuantities(initialQuantities);
-  }, []);
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const formatPrice = (amount: number) => {
     if (amount === 0) return 'Price on Request';
@@ -238,7 +255,7 @@ export function OrderSection() {
     });
   };
 
-  const getCartTotalDisplay = () => {
+  const getCartTotalDisplay = (): string => {
     const total = getCartTotalPrice();
     const hasUnpriced = hasUnpricedInCart();
     if (total === 0) return 'Price on Request';
@@ -246,11 +263,11 @@ export function OrderSection() {
     return '₦' + total.toLocaleString();
   };
 
-  const getCartTotalItems = () => {
-    return Object.values(cart).reduce((sum: number, qty) => sum + (qty as number), 0);
+  const getCartTotalItems = (): number => {
+    return Object.keys(cart).reduce((sum, id) => sum + (cart[Number(id)] || 0), 0);
   };
 
-  const getCartTotalPrice = () => {
+  const getCartTotalPrice = (): number => {
     return Object.entries(cart).reduce((sum: number, [id, qty]) => {
       const p = PRODUCTS.find(prod => prod.id === Number(id));
       const q = qty as number;
@@ -258,57 +275,32 @@ export function OrderSection() {
     }, 0);
   };
 
-  const handleQtyChange = (productId: number, change: number) => {
-    setQuantities(prev => {
-      const current = prev[productId] || 0;
-      const next = Math.max(0, current + change);
-      return { ...prev, [productId]: next };
-    });
-  };
-
-  const handleAddToCart = (productId: number) => {
-    const qty = quantities[productId] || 0;
-    if (qty === 0) {
-      alert('Please select a quantity first using the + and - buttons!');
-      return;
-    }
-
-    setCart(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + qty
-    }));
-
-    // Reset pre-add quantity
-    setQuantities(prev => ({
-      ...prev,
-      [productId]: 0
-    }));
-
-    // Trigger visual checkmark feedback
-    setAddedItems(prev => ({ ...prev, [productId]: true }));
-    setTimeout(() => {
-      setAddedItems(prev => ({ ...prev, [productId]: false }));
-    }, 1500);
-  };
-
-  const handleCartQtyChange = (productId: number, change: number) => {
+  // Direct In-Grid Quantity Increments and Add to Cart
+  const handleAddToCartDirectly = (productId: number) => {
     setCart(prev => {
-      const current = prev[productId] || 0;
-      const next = current + change;
-      if (next <= 0) {
+      const currentQty = prev[productId] || 0;
+      const newQty = currentQty + 1;
+      return { ...prev, [productId]: newQty };
+    });
+    const prod = PRODUCTS.find(p => p.id === productId);
+    if (prod) {
+      showToast(`Added ${prod.name} to cart!`);
+    }
+  };
+
+  const handleDecrementCartQuantity = (productId: number) => {
+    setCart(prev => {
+      const currentQty = prev[productId] || 0;
+      if (currentQty <= 1) {
         const copy = { ...prev };
         delete copy[productId];
+        const prod = PRODUCTS.find(p => p.id === productId);
+        if (prod) {
+          showToast(`Removed ${prod.name} from cart`, 'info');
+        }
         return copy;
       }
-      return { ...prev, [productId]: next };
-    });
-  };
-
-  const handleRemoveFromCart = (productId: number) => {
-    setCart(prev => {
-      const copy = { ...prev };
-      delete copy[productId];
-      return copy;
+      return { ...prev, [productId]: currentQty - 1 };
     });
   };
 
@@ -317,16 +309,28 @@ export function OrderSection() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Send Compiled Order to WhatsApp
+  const executeWhatsAppOrder = (itemsString: string, totalAmountString: string) => {
+    const whatsappMessage = `🛍️ *NEW ORDER FROM OLIT CONCEPT*
+----------------------------------
+*ITEMS ORDERED:*
+${itemsString}
+*TOTAL AMOUNT:* ${totalAmountString}
+----------------------------------
+_Hello Olit Concept! I would like to place an order for the items listed above. Let's arrange delivery and payment!_
+
+_Sent via Olit Concept Interactive Store_`;
+
+    const encodedMessage = encodeURIComponent(whatsappMessage);
+    const whatsappURL = `https://wa.me/2348130060812?text=${encodedMessage}`;
+    window.open(whatsappURL, '_blank');
+  };
+
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.address) {
-      alert('Please fill out all required fields.');
-      return;
-    }
-
     setIsSubmitting(true);
 
-    // Build items string for WhatsApp message
+    // Build items description
     let itemsString = '';
     Object.entries(cart).forEach(([id, qty]) => {
       const p = PRODUCTS.find(prod => prod.id === Number(id));
@@ -338,35 +342,36 @@ export function OrderSection() {
 
     const totalAmount = getCartTotalDisplay();
 
-    // Create the custom-styled WhatsApp message
-    const whatsappMessage = `🛍️ *NEW ORDER FROM OLIT CONCEPT*
-----------------------------------
-*ITEMS ORDERED:*
-${itemsString}
-*TOTAL AMOUNT:* ${totalAmount}
-
-*CUSTOMER DETAILS:*
-👤 *Name:* ${formData.name}
-📞 *Phone:* ${formData.phone}
-📍 *Address:* ${formData.address}
-🗺️ *State:* ${formData.state}
-
-*SHIPPING PREFERENCE:*
-🚚 *Method:* ${formData.deliveryMethod}
-
-*PAYMENT PREFERENCE:*
-💵 *Option:* ${formData.paymentOption}
-----------------------------------
-_Sent via Olit Concept Interactive Store_`;
-
-    const encodedMessage = encodeURIComponent(whatsappMessage);
-    const whatsappURL = `https://wa.me/2348130080812?text=${encodedMessage}`;
-
     setTimeout(() => {
       setIsSubmitting(false);
       setCheckoutStep('success');
-      // Open WhatsApp in a new tab
-      window.open(whatsappURL, '_blank');
+      executeWhatsAppOrder(itemsString, totalAmount);
+    }, 1500);
+  };
+
+  // Direct checkout bypass submission (single product)
+  const handleDirectCheckoutSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directCheckoutProduct) return;
+    if (!formData.name || !formData.phone || !formData.address) {
+      showToast('Please fill out all required fields.', 'warning');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const singleItemPrice = directCheckoutProduct.price * directQuantity;
+    const itemTotalDisplay = directCheckoutProduct.price === 0 
+      ? 'Price on Request' 
+      : `₦${singleItemPrice.toLocaleString()}`;
+
+    const itemsString = `• *${directCheckoutProduct.name}* x ${directQuantity} (${formatPrice(singleItemPrice)})\n`;
+
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setDirectCheckoutProduct(null);
+      showToast('Direct order sent to WhatsApp!', 'success');
+      executeWhatsAppOrder(itemsString, itemTotalDisplay);
     }, 1500);
   };
 
@@ -380,547 +385,466 @@ _Sent via Olit Concept Interactive Store_`;
       deliveryMethod: 'Standard Delivery (2-3 Days)',
       paymentOption: 'Bank Transfer'
     });
-    setCheckoutStep('cart');
+    setCheckoutStep('review');
     setIsCartOpen(false);
   };
 
-  const filterCategories = [
+  // Memoized filter and sort system to prevent layouth shifts
+  const filterCategories = useMemo(() => [
     { id: 'All', name: 'All Products', icon: Layers, count: PRODUCTS.length },
     { id: 'Smartphones', name: 'Smartphones', icon: Smartphone, count: PRODUCTS.filter(p => p.category === 'iPhone' || p.category === 'Samsung').length },
     { id: 'Accessories', name: 'Accessories', icon: Headphones, count: PRODUCTS.filter(p => p.category === 'Accessories').length },
     { id: 'Spare Parts', name: 'Spare Parts', icon: Cpu, count: PRODUCTS.filter(p => p.category === 'Spare Parts').length },
     { id: 'Feature Phone', name: 'Feature Phones', icon: Phone, count: PRODUCTS.filter(p => p.category === 'Feature Phone').length }
-  ];
+  ], []);
 
-  const filteredProducts = PRODUCTS.filter((p) => {
-    if (selectedCategory === 'All') return true;
-    if (selectedCategory === 'Smartphones') return p.category === 'iPhone' || p.category === 'Samsung';
-    return p.category === selectedCategory;
-  });
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = PRODUCTS.filter((p) => {
+      // Category Filter
+      const matchesCategory = selectedCategory === 'All' ||
+        (selectedCategory === 'Smartphones' && (p.category === 'iPhone' || p.category === 'Samsung')) ||
+        (p.category === selectedCategory);
+
+      // Search Query Filter
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+      return matchesCategory && matchesSearch;
+    });
+
+    // Sorting
+    if (sortBy === 'price-asc') {
+      result.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price-desc') {
+      result.sort((a, b) => b.price - a.price);
+    }
+
+    return result;
+  }, [selectedCategory, searchQuery, sortBy]);
 
   return (
-    <div id="order-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-slate-100 dark:border-slate-800">
+    <div id="order-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative font-sans">
       
-      {/* SECTION HEADER & CART TOGGLE BUTTON */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-        <div>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-4 uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" /> Interactive Catalog Store
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-sans font-semibold tracking-tight text-slate-900 dark:text-white mb-2">
-            Olit Concept Order Section
-          </h2>
-          <p className="max-w-xl text-sm text-slate-500 dark:text-slate-400">
-            Browse our verified inventory. Add items to your dynamic cart and checkout instantly. Your orders are securely processed directly to WhatsApp.
-          </p>
-        </div>
-
-        <button 
-          onClick={() => {
-            setCheckoutStep('cart');
-            setIsCartOpen(true);
-          }}
-          className="self-start md:self-end px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-rose-600 dark:bg-white dark:hover:bg-rose-500 text-white dark:text-slate-900 dark:hover:text-white font-mono text-xs uppercase tracking-wider transition-all duration-300 flex items-center gap-2.5 shadow-lg shadow-rose-500/5 cursor-pointer hover:scale-[1.02] active:scale-95"
-        >
-          <ShoppingCart className="w-4 h-4" />
-          View Cart
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white dark:bg-slate-900 dark:text-white">
-            {getCartTotalItems()}
-          </span>
-        </button>
-      </div>
-
-      {/* CATEGORIES FILTER SYSTEM */}
-      <div className="flex gap-2 pb-5 overflow-x-auto scrollbar-none mb-8 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-        {filterCategories.map((cat) => {
-          const IconComponent = cat.icon;
-          const isActive = selectedCategory === cat.id;
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-mono text-xs uppercase tracking-wider border transition-all duration-300 whitespace-nowrap cursor-pointer hover:scale-[1.02] active:scale-95 ${
-                isActive
-                  ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/20'
-                  : 'bg-white border-slate-100 hover:border-slate-200 dark:bg-slate-900/20 dark:border-white/5 dark:hover:border-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <IconComponent className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
-              <span>{cat.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                isActive 
-                  ? 'bg-white/25 text-white' 
-                  : 'bg-slate-50 dark:bg-slate-950/60 text-slate-400 dark:text-slate-500 border border-slate-100 dark:border-white/5'
-              }`}>
-                {cat.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* PRODUCTS GRID */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-6">
-        {filteredProducts.map((p) => {
-          const preQty = quantities[p.id] || 0;
-          const isAdded = addedItems[p.id];
-
-          return (
-            <div 
-              key={p.id}
-              className="flex flex-col bg-white dark:bg-slate-900/40 backdrop-blur-md rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-slate-100/30 dark:hover:shadow-none transition-all duration-300 group"
-            >
-              {/* Product Image and Label Badge */}
-              <div className="relative aspect-square overflow-hidden bg-slate-50 dark:bg-slate-950 flex items-center justify-center border-b border-slate-50 dark:border-white/5">
-                <img 
-                  src={p.image} 
-                  alt={p.name}
-                  loading="lazy"
-                  className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
-                  referrerPolicy="no-referrer"
-                />
-                
-                {/* Visual Label */}
-                <span className="absolute top-2 left-2 sm:top-4 sm:left-4 z-10 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[8px] sm:text-[10px] font-mono font-semibold bg-slate-900/80 text-white dark:bg-white dark:text-slate-900 rounded-md sm:rounded-lg shadow-sm">
-                  {p.label}
-                </span>
-              </div>
-
-              {/* Product details */}
-              <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mb-0.5 sm:mb-1">
-                    <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-500" />
-                    <span>{p.category}</span>
-                  </div>
-                  <h3 className="font-sans font-semibold text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight leading-tight mb-1 sm:mb-2 line-clamp-2 h-8 sm:h-10">
-                    {p.name}
-                  </h3>
-                  <div className="text-sm sm:text-lg font-mono font-semibold text-slate-900 dark:text-white mb-2 sm:mb-4">
-                    {formatPrice(p.price)}
-                  </div>
-                </div>
-
-                {/* Interactive Actions */}
-                <div className="space-y-2 pt-1 sm:pt-2">
-                  {/* Quantity adjustment */}
-                  <div className="flex items-center justify-between p-0.5 sm:p-1 bg-slate-50 dark:bg-slate-950/60 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-white/5">
-                    <button
-                      onClick={() => handleQtyChange(p.id, -1)}
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-slate-100 dark:border-white/5"
-                    >
-                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                    <span className="text-[11px] sm:text-xs font-mono font-bold text-slate-800 dark:text-slate-200 min-w-6 sm:min-w-8 text-center">
-                      {preQty}
-                    </span>
-                    <button
-                      onClick={() => handleQtyChange(p.id, 1)}
-                      className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all cursor-pointer border border-slate-100 dark:border-white/5"
-                    >
-                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Add Button */}
-                  <button
-                    onClick={() => handleAddToCart(p.id)}
-                    className={`w-full py-2 sm:py-3.5 rounded-xl sm:rounded-2xl font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-center transition-all cursor-pointer flex items-center justify-center gap-1 sm:gap-1.5 ${
-                      isAdded 
-                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
-                        : 'bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/10 hover:shadow-rose-500/20'
-                    }`}
-                  >
-                    {isAdded ? (
-                      <>
-                        <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-bounce" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        Add to Cart
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* DYNAMIC SHOPPING CART SIDEBAR OVERLAY */}
+      {/* Toast Notification HUD Overlay */}
       <AnimatePresence>
-        {isCartOpen && (
-          <>
-            {/* Dark glass backdrop */}
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsCartOpen(false)}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 cursor-pointer"
-            />
-
-            {/* Slide-out Sidebar Panel */}
-            <motion.div 
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 h-full w-full max-w-[480px] bg-white dark:bg-slate-950 border-l border-slate-100 dark:border-white/10 shadow-2xl z-50 flex flex-col overflow-hidden"
-            >
-              {/* Header */}
-              <div className="p-6 border-b border-slate-100 dark:border-white/5 flex justify-between items-center bg-slate-50 dark:bg-slate-900/25">
-                <div className="flex items-center gap-2">
-                  <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500">
-                    <ShoppingBag className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-sans font-semibold text-slate-900 dark:text-white text-lg">Your Showroom Order</h3>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">{getCartTotalItems()} items loaded</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setIsCartOpen(false)}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Interactive Steps container */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {checkoutStep === 'cart' && (
-                  <>
-                    {/* CART ITEMS VIEW */}
-                    {Object.keys(cart).length === 0 ? (
-                      <div className="py-24 text-center space-y-4">
-                        <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center mx-auto text-slate-300 dark:text-slate-700">
-                          <ShoppingBag className="w-8 h-8" />
-                        </div>
-                        <div>
-                          <h4 className="font-sans font-semibold text-slate-800 dark:text-slate-200 text-sm">Your order list is empty</h4>
-                          <p className="text-xs text-slate-400 dark:text-slate-500 max-w-[240px] mx-auto mt-1">Select products and set custom quantities in the catalog above to add them here.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {Object.entries(cart).map(([idStr, qty]) => {
-                          const id = Number(idStr);
-                          const p = PRODUCTS.find(prod => prod.id === id);
-                          if (!p) return null;
-
-                          return (
-                            <motion.div 
-                              key={p.id}
-                              layout
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-white/5 flex items-center gap-4 group"
-                            >
-                              <div className="w-14 h-14 rounded-xl overflow-hidden bg-white dark:bg-slate-950 border border-slate-200/50 dark:border-white/5 shrink-0">
-                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-sans font-semibold text-slate-900 dark:text-white text-xs truncate">{p.name}</h4>
-                                <p className="text-xs text-rose-500 font-mono font-medium mt-0.5">{formatPrice(p.price)} each</p>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2.5 p-1 bg-white dark:bg-slate-950 border border-slate-100 dark:border-white/5 rounded-xl">
-                                  <button
-                                    onClick={() => handleCartQtyChange(p.id, -1)}
-                                    className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 flex items-center justify-center cursor-pointer"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 w-4 text-center">
-                                    {qty}
-                                  </span>
-                                  <button
-                                    onClick={() => handleCartQtyChange(p.id, 1)}
-                                    className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 flex items-center justify-center cursor-pointer"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                </div>
-
-                                <button
-                                  onClick={() => handleRemoveFromCart(p.id)}
-                                  className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/5 transition-all cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {checkoutStep === 'form' && (
-                  <motion.form 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    onSubmit={handleCheckoutSubmit}
-                    className="space-y-4"
-                  >
-                    <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 mb-2">
-                      <p className="text-[10px] font-mono font-medium text-rose-600 dark:text-rose-400 uppercase tracking-wider">Estimated Total</p>
-                      <h4 className="text-2xl font-mono font-bold text-slate-900 dark:text-white mt-0.5">{getCartTotalDisplay()}</h4>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Orders are compiled into a beautiful template format to send directly to our verified sales representative on WhatsApp.</p>
-                    </div>
-
-                    {/* Full Name */}
-                    <div>
-                      <label className="block text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">
-                        Full Name <span className="text-rose-500">*</span>
-                      </label>
-                      <input 
-                        type="text" 
-                        name="name"
-                        required
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        placeholder="e.g. Blessing Adewale"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all placeholder:text-slate-400"
-                      />
-                    </div>
-
-                    {/* Phone Number */}
-                    <div>
-                      <label className="block text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">
-                        Phone Number <span className="text-rose-500">*</span>
-                      </label>
-                      <input 
-                        type="tel" 
-                        name="phone"
-                        required
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        placeholder="e.g. +234 813 008 0812"
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all placeholder:text-slate-400"
-                      />
-                    </div>
-
-                    {/* Delivery Address */}
-                    <div>
-                      <label className="block text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">
-                        Delivery Address <span className="text-rose-500">*</span>
-                      </label>
-                      <textarea 
-                        name="address"
-                        required
-                        rows={3}
-                        value={formData.address}
-                        onChange={handleInputChange}
-                        placeholder="Enter your complete home or office delivery address..."
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all placeholder:text-slate-400 resize-none"
-                      />
-                    </div>
-
-                    {/* State & Payment Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">
-                          State
-                        </label>
-                        <select 
-                          name="state"
-                          value={formData.state}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                        >
-                          <option value="Lagos">Lagos</option>
-                          <option value="Abuja">Abuja</option>
-                          <option value="Port Harcourt">Port Harcourt</option>
-                          <option value="Oyo">Oyo</option>
-                          <option value="Ogun">Ogun</option>
-                          <option value="Other">Other State</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">
-                          Payment Mode
-                        </label>
-                        <select 
-                          name="paymentOption"
-                          value={formData.paymentOption}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                        >
-                          <option value="Bank Transfer">Bank Transfer</option>
-                          <option value="Pay on Delivery">Pay on Delivery</option>
-                          <option value="Store Pickup">Store Pickup</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Delivery speed method */}
-                    <div>
-                      <label className="block text-[11px] font-mono font-semibold text-slate-400 dark:text-slate-500 mb-1.5 uppercase tracking-wider">
-                        Delivery Speed
-                      </label>
-                      <select 
-                        name="deliveryMethod"
-                        value={formData.deliveryMethod}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all"
-                      >
-                        <option value="Standard Delivery (2-3 Days)">Standard Delivery (2-3 Days)</option>
-                        <option value="Express Dispatch (Same Day Lagos)">Express Same-Day Dispatch (Lagos)</option>
-                        <option value="Self Pickup at Shop">Self-Pickup at Olit Concept Store</option>
-                      </select>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-4 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:bg-rose-400 text-white font-mono text-xs uppercase tracking-wider text-center transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-rose-500/25 active:scale-[0.98]"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Processing Order Format...
-                        </>
-                      ) : (
-                        <>
-                          <MessageSquare className="w-4 h-4" />
-                          Send WhatsApp Order Code
-                        </>
-                      )}
-                    </button>
-                  </motion.form>
-                )}
-
-                {checkoutStep === 'success' && (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="py-16 text-center space-y-6"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
-                      <Check className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h4 className="font-sans font-semibold text-slate-900 dark:text-white text-lg">Order Successfully Processed</h4>
-                      <p className="text-xs text-slate-400 max-w-sm mx-auto mt-2 leading-relaxed">
-                        Your secure preorder format has been generated and compiled. A chat has been initiated with Olit Concept. If it did not open automatically, please trigger it using the buttons below.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-3 max-w-xs mx-auto">
-                      <button
-                        onClick={() => {
-                          let itemsString = '';
-                          Object.entries(cart).forEach(([id, qty]) => {
-                            const p = PRODUCTS.find(prod => prod.id === Number(id));
-                            const q = qty as number;
-                            if (p) {
-                              itemsString += `• *${p.name}* x ${q} (${formatPrice(p.price * q)})\n`;
-                            }
-                          });
-                          const totalAmount = getCartTotalDisplay();
-                          const whatsappMessage = `🛍️ *NEW ORDER FROM OLIT CONCEPT*
-----------------------------------
-*ITEMS ORDERED:*
-${itemsString}
-*TOTAL AMOUNT:* ${totalAmount}
-
-*CUSTOMER DETAILS:*
-👤 *Name:* ${formData.name}
-📞 *Phone:* ${formData.phone}
-📍 *Address:* ${formData.address}
-🗺️ *State:* ${formData.state}
-
-*SHIPPING PREFERENCE:*
-🚚 *Method:* ${formData.deliveryMethod}
-
-*PAYMENT PREFERENCE:*
-💵 *Option:* ${formData.paymentOption}
-----------------------------------
-_Sent via Olit Concept Interactive Store_`;
-                          window.open(`https://wa.me/2348130080812?text=${encodeURIComponent(whatsappMessage)}`, '_blank');
-                        }}
-                        className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-mono text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-                      >
-                        <MessageSquare className="w-4 h-4" /> Trigger WhatsApp Manually
-                      </button>
-                      <button
-                        onClick={handleResetOrder}
-                        className="w-full py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-xs uppercase tracking-wider transition-all cursor-pointer"
-                      >
-                        Reset & Clear Cart
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Footer (Total amounts, checkout button triggers) */}
-              {checkoutStep === 'cart' && Object.keys(cart).length > 0 && (
-                <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/20 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono uppercase tracking-wider">Subtotal amount</span>
-                    <span className="text-lg font-mono font-bold text-slate-900 dark:text-white">{getCartTotalDisplay()}</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button
-                      onClick={() => setCart({})}
-                      className="py-3.5 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 font-mono text-[10px] uppercase tracking-wider text-center transition-all cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900"
-                    >
-                      Empty Cart
-                    </button>
-                    <button
-                      onClick={() => setCheckoutStep('form')}
-                      className="py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-mono text-[10px] uppercase tracking-wider text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-rose-500/10"
-                    >
-                      Proceed to Checkout
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          </>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            className="fixed top-24 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2.5 px-5 py-3.5 rounded-2xl shadow-xl border border-cyber-cyan/20 backdrop-blur-md text-white bg-slate-900/95"
+          >
+            {toast.type === 'success' && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
+            {toast.type === 'info' && <Sparkles className="w-4 h-4 text-cyber-cyan shrink-0" />}
+            {toast.type === 'warning' && <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />}
+            <span className="text-xs font-mono font-semibold">{toast.message}</span>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* QUICK VALUE PROPOSITIONS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 pt-12 border-t border-slate-100 dark:border-white/5">
-        <div className="flex gap-4 p-6 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 border border-slate-100/50 dark:border-white/5">
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 text-rose-500 shrink-0 h-fit">
+      {/* BACKGROUND ACCENTS */}
+      <div className="absolute top-1/3 right-10 w-80 h-80 bg-cyber-cyan/5 rounded-full filter blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-80 h-80 bg-cyber-blue/5 rounded-full filter blur-[100px] pointer-events-none" />
+
+      {/* HEADER HERO AREA */}
+      <div className="text-center max-w-3xl mx-auto mb-16 relative z-10">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold bg-cyber-cyan/10 text-cyber-cyan mb-4 uppercase tracking-wider">
+          <Sparkles className="w-3.5 h-3.5" /> Interactive Showroom Hub
+        </div>
+        <h2 className="text-3xl sm:text-5xl font-display font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none mb-4">
+          PREMIUM <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyber-cyan via-cyber-blue to-cyber-green">GADGET SHOWCASE</span>
+        </h2>
+        <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
+          Browse our carefully vetted collection of high-spec smartphones, certified pristine used products, original audio components, and spare parts. Add items to your active cart and place your order instantly.
+        </p>
+      </div>
+
+      {/* MAIN TWO-COLUMN CONTENT GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 relative z-10 items-start">
+        
+        {/* LEFT COLUMN: FILTERS AND PRODUCT LISTING GRID */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-8">
+          
+          {/* FILTER, SEARCH, & SORT NAVIGATION DOCK */}
+          <div className="bg-slate-50/85 dark:bg-slate-50/85 border border-slate-100 dark:border-slate-200/50 rounded-3xl p-6 backdrop-blur-md">
+            <div className="flex flex-col xl:flex-row xl:items-center gap-6 justify-between">
+              
+              {/* Categories Tab Pillboxes */}
+              <div className="flex gap-2 pb-2 overflow-x-auto scrollbar-none -mx-2 px-2 xl:mx-0 xl:px-0 xl:flex-wrap">
+                {filterCategories.map((cat) => {
+                  const IconComponent = cat.icon;
+                  const isActive = selectedCategory === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`flex items-center gap-2.5 px-4.5 py-2.5 rounded-xl font-mono text-[10px] uppercase tracking-wider border transition-all duration-300 whitespace-nowrap cursor-pointer hover:scale-[1.02] active:scale-95 ${
+                        isActive
+                          ? 'bg-cyber-cyan border-cyber-cyan text-slate-900 shadow-lg shadow-cyber-cyan/25 font-bold'
+                          : 'bg-white border-slate-100 dark:bg-white dark:border-slate-200/50 text-slate-500 dark:text-slate-600 hover:text-slate-800 dark:hover:text-slate-800'
+                      }`}
+                    >
+                      <IconComponent className={`w-3.5 h-3.5 ${isActive ? 'text-slate-900' : 'text-slate-400 dark:text-slate-500'}`} />
+                      <span>{cat.name}</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                        isActive 
+                          ? 'bg-slate-900/15 text-slate-900' 
+                          : 'bg-slate-50 dark:bg-slate-50 text-slate-400 dark:text-slate-500'
+                      }`}>
+                        {cat.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Interactive Utility Controls */}
+              <div className="flex flex-col sm:flex-row gap-3 min-w-[300px] xl:max-w-md w-full">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search premium devices..."
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200/60 dark:border-slate-200/60 bg-white dark:bg-white text-slate-900 dark:text-slate-900 text-xs outline-none transition-all focus:border-cyber-cyan placeholder:text-slate-400"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-900 dark:hover:text-slate-900 p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-100 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Price Sorting Select */}
+                <div className="relative shrink-0 min-w-[150px]">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="w-full pl-3 pr-8 py-2.5 rounded-xl border border-slate-200/60 dark:border-slate-200/60 bg-white dark:bg-white text-slate-800 dark:text-slate-800 text-xs outline-none transition-all cursor-pointer focus:border-cyber-cyan appearance-none font-mono tracking-wider"
+                  >
+                    <option value="default">Default Order</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* PRODUCTS DISPLAY GRID */}
+          {filteredAndSortedProducts.length === 0 ? (
+            <div className="py-24 text-center space-y-4 max-w-md mx-auto relative z-10">
+              <div className="w-16 h-16 rounded-2xl bg-cyber-cyan/10 text-cyber-cyan flex items-center justify-center mx-auto">
+                <SlidersHorizontal className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-sans font-bold text-slate-800 dark:text-white text-base">No Matching Devices Found</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">We couldn't find any products in category "{selectedCategory}" matching "{searchQuery}". Try modifying your filters or terms.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 relative z-10">
+              {filteredAndSortedProducts.map((p) => {
+                const currentCartQty = cart[p.id] || 0;
+                const inCart = currentCartQty > 0;
+
+                return (
+                  <div 
+                    key={p.id}
+                    className="flex flex-col bg-white dark:bg-white backdrop-blur-md rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-200/50 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-slate-100/30 dark:hover:shadow-none transition-all duration-300 group"
+                  >
+                    {/* Product Image and Visual Badging */}
+                    <div className="relative aspect-square overflow-hidden bg-slate-50 dark:bg-slate-50/50 flex items-center justify-center border-b border-slate-100/50 dark:border-slate-200/30">
+                      <img 
+                        src={p.image} 
+                        alt={p.name}
+                        loading="lazy"
+                        className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
+                        referrerPolicy="no-referrer"
+                      />
+                      
+                      {/* Status indicator pill label */}
+                      <span className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10 px-2 py-1 text-[8px] sm:text-[9px] font-mono font-bold bg-cyber-cyan/15 backdrop-blur-sm text-cyber-cyan rounded-lg border border-cyber-cyan/30 shadow-md">
+                        {p.label}
+                      </span>
+                      
+                      {/* Quantity Indicator Overlay */}
+                      {inCart && (
+                        <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 bg-emerald-500/90 text-white font-mono text-[9px] font-bold px-2 py-1 rounded-lg border border-emerald-400/20 shadow-md flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          <span>{currentCartQty} in Cart</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product details */}
+                    <div className="p-3 sm:p-5 flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider font-mono">
+                          <Tag className="w-2.5 h-2.5 text-cyber-cyan shrink-0" />
+                          <span>{p.category}</span>
+                        </div>
+                        
+                        <h3 className="font-sans font-semibold text-slate-900 dark:text-slate-900 text-xs sm:text-sm tracking-tight leading-snug mb-1 sm:mb-2 line-clamp-2 h-8 sm:h-10">
+                          {p.name}
+                        </h3>
+
+                        {/* Highly stylized Pricing Display */}
+                        <div className="text-sm sm:text-lg font-mono font-black text-cyber-blue dark:text-cyber-blue mb-4 flex items-baseline gap-1">
+                          {formatPrice(p.price)}
+                        </div>
+                      </div>
+
+                      {/* Interactive Shopping Stepper & Instant Buy Bypass */}
+                      <div className="space-y-2 pt-2 border-t border-slate-50 dark:border-slate-100/10">
+                        
+                        {/* Add-to-Cart Action Container */}
+                        {inCart ? (
+                          /* Morphing In-Card Counter Controller */
+                          <div className="flex items-center justify-between p-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <button
+                              onClick={() => handleDecrementCartQuantity(p.id)}
+                              className="w-7 h-7 rounded-lg bg-emerald-500 text-slate-900 hover:bg-emerald-600 flex items-center justify-center transition-all cursor-pointer border border-emerald-400/20 shadow-sm"
+                              title="Decrease Quantity"
+                            >
+                              <Minus className="w-3.5 h-3.5 font-bold" />
+                            </button>
+                            <span className="text-[11px] font-mono font-black text-cyber-blue dark:text-emerald-400 px-2">
+                              Qty: {currentCartQty}
+                            </span>
+                            <button
+                              onClick={() => handleAddToCartDirectly(p.id)}
+                              className="w-7 h-7 rounded-lg bg-emerald-500 text-slate-900 hover:bg-emerald-600 flex items-center justify-center transition-all cursor-pointer border border-emerald-400/20 shadow-sm"
+                              title="Increase Quantity"
+                            >
+                              <Plus className="w-3.5 h-3.5 font-bold" />
+                            </button>
+                          </div>
+                        ) : (
+                          /* Clean Add Button */
+                          <button
+                            onClick={() => handleAddToCartDirectly(p.id)}
+                            className="w-full py-2.5 sm:py-3 rounded-xl bg-cyber-cyan hover:bg-cyber-cyan/90 text-slate-900 font-bold font-mono text-[9px] sm:text-[10px] uppercase tracking-widest text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm hover:scale-[1.01] hover:shadow-lg hover:shadow-cyber-cyan/20"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                            Add To Order
+                          </button>
+                        )}
+
+                        {/* Instant Direct Checkout bypass button */}
+                        <button
+                          onClick={() => {
+                            // Add to cart and scroll to checkout form
+                            if (!cart[p.id]) {
+                              handleAddToCartDirectly(p.id);
+                            }
+                            const el = document.getElementById('checkout-form-container');
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }}
+                          className="w-full py-2.5 sm:py-3 rounded-xl bg-cyber-blue hover:bg-cyber-blue/90 text-white font-bold font-mono text-[9px] sm:text-[10px] uppercase tracking-widest text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm hover:scale-[1.01] hover:shadow-lg hover:shadow-cyber-blue/25"
+                        >
+                          <Zap className="w-3.5 h-3.5 text-white group-hover:scale-110 shrink-0" />
+                          Buy Instantly
+                        </button>
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: STICKY BASKET & CHECKOUT FORM */}
+        <div id="checkout-form-container" className="lg:col-span-5 xl:col-span-4 lg:sticky lg:top-28 space-y-6 z-10">
+          
+          <div className="bg-white dark:bg-white border border-slate-200/80 dark:border-slate-200/80 rounded-3xl shadow-xl overflow-hidden flex flex-col">
+            
+            {/* Panel Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-200/40 bg-slate-50 dark:bg-slate-50/50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-cyber-cyan/10 text-cyber-cyan shrink-0">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-sans font-bold text-slate-900 dark:text-slate-900 uppercase text-sm tracking-tight leading-none mb-1">
+                    Your Shopping Basket
+                  </h3>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                    {getCartTotalItems()} {getCartTotalItems() === 1 ? 'item' : 'items'} selected
+                  </p>
+                </div>
+              </div>
+              {getCartTotalItems() > 0 && (
+                <button 
+                  onClick={handleResetOrder}
+                  className="text-[10px] font-mono text-slate-400 hover:text-cyber-cyan uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" /> Clear All
+                </button>
+              )}
+            </div>
+
+            {/* Panel Body */}
+            <div className="p-6 space-y-6">
+              
+              {/* Basket list */}
+              {Object.keys(cart).length === 0 ? (
+                <div className="py-12 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-50/50 dark:bg-slate-50/50 flex items-center justify-center mx-auto text-slate-300 dark:text-slate-400 border border-slate-100 dark:border-slate-200/50">
+                    <ShoppingBag className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-sans font-bold text-slate-800 dark:text-slate-800 text-xs uppercase tracking-tight">Your order is empty</h4>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">Select premium devices and accessories from the showroom to begin your checkout.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[240px] overflow-y-auto pr-1">
+                  {Object.entries(cart).map(([idStr, qty]) => {
+                    const id = Number(idStr);
+                    const p = PRODUCTS.find(prod => prod.id === id);
+                    if (!p) return null;
+
+                    return (
+                      <motion.div 
+                        key={p.id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-50 border border-slate-100 dark:border-slate-200/40 flex items-center gap-3 group"
+                      >
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-white dark:bg-white border border-slate-200/50 dark:border-slate-200/40 shrink-0">
+                          <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-sans font-bold text-slate-900 dark:text-slate-900 text-xs truncate leading-snug">{p.name}</h4>
+                          <p className="text-[11px] text-cyber-blue font-mono font-medium mt-0.5">{formatPrice(p.price)}</p>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-white border border-slate-100 dark:border-slate-200/40 rounded-lg">
+                            <button
+                              onClick={() => handleDecrementCartQuantity(p.id)}
+                              className="w-5 h-5 rounded bg-slate-50 dark:bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer"
+                            >
+                              <Minus className="w-2.5 h-2.5" />
+                            </button>
+                            <span className="text-[11px] font-mono font-bold text-slate-800 dark:text-slate-800 w-3 text-center">
+                              {qty}
+                            </span>
+                            <button
+                              onClick={() => handleAddToCartDirectly(p.id)}
+                              className="w-5 h-5 rounded bg-slate-50 dark:bg-slate-50 hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setCart(prev => {
+                                  const copy = { ...prev };
+                                  delete copy[p.id];
+                                  return copy;
+                              });
+                              showToast(`Removed ${p.name}`, 'info');
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-cyber-cyan hover:bg-cyber-cyan/5 transition-all cursor-pointer"
+                            title="Remove item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Delivery Details Form */}
+              {Object.keys(cart).length > 0 && (
+                <form onSubmit={handleCheckoutSubmit} className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-200/20">
+                  <div className="p-4 rounded-2xl bg-cyber-cyan/5 border border-cyber-cyan/15 space-y-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-cyber-cyan/10">
+                      <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Estimated Total:</span>
+                      <span className="text-base font-mono font-black text-slate-900 dark:text-slate-900 leading-none">{getCartTotalDisplay()}</span>
+                    </div>
+                    <div className="flex items-start gap-2.5 text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                      <AlertCircle className="w-4 h-4 text-cyber-cyan shrink-0 mt-0.5" />
+                      <span>
+                        No form filling required! Simply click the button below to send your items directly to our sales team on WhatsApp to finalize your delivery and payment details instantly.
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 mt-2 rounded-xl bg-cyber-cyan hover:bg-cyber-cyan/95 disabled:opacity-50 text-slate-900 font-mono text-xs font-bold uppercase tracking-widest text-center transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-cyber-cyan/15 hover:scale-[1.01]"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="w-4 h-4 shrink-0" />
+                        Complete Order on WhatsApp
+                        <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* FOOTER CORE PROPOSITIONS BAR */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-24 pt-12 border-t border-slate-100 dark:border-slate-200/40 relative z-10">
+        <div className="flex gap-4 p-6 rounded-3xl bg-slate-50/50 dark:bg-slate-50/50 border border-slate-100/50 dark:border-slate-200/30">
+          <div className="p-3.5 rounded-2xl bg-cyber-cyan/10 text-cyber-cyan shrink-0 h-fit">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-sans font-semibold text-slate-900 dark:text-white text-sm mb-1">Olit Certified Quality</h4>
+            <h4 className="font-sans font-bold text-slate-900 dark:text-slate-900 text-sm mb-1 uppercase tracking-tight">Olit Certified Quality</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Each item undergoes a thorough 25-point visual and functional inspection process, guaranteeing pristine performance and battery longevity.</p>
           </div>
         </div>
 
-        <div className="flex gap-4 p-6 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 border border-slate-100/50 dark:border-white/5">
+        <div className="flex gap-4 p-6 rounded-3xl bg-slate-50/50 dark:bg-slate-50/50 border border-slate-100/50 dark:border-slate-200/30">
           <div className="p-3.5 rounded-2xl bg-blue-500/10 text-blue-500 shrink-0 h-fit">
             <Truck className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-sans font-semibold text-slate-900 dark:text-white text-sm mb-1">Swift Nationwide Dispatch</h4>
+            <h4 className="font-sans font-bold text-slate-900 dark:text-slate-900 text-sm mb-1 uppercase tracking-tight">Swift Nationwide Dispatch</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Enjoy secured standard delivery nationwide. Same-day premium dispatch is fully available for orders placed within Lagos state before 3 PM.</p>
           </div>
         </div>
 
-        <div className="flex gap-4 p-6 rounded-3xl bg-slate-50/50 dark:bg-slate-900/10 border border-slate-100/50 dark:border-white/5">
+        <div className="flex gap-4 p-6 rounded-3xl bg-slate-50/50 dark:bg-slate-50/50 border border-slate-100/50 dark:border-slate-200/30">
           <div className="p-3.5 rounded-2xl bg-emerald-500/10 text-emerald-500 shrink-0 h-fit">
             <RotateCcw className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="font-sans font-semibold text-slate-900 dark:text-white text-sm mb-1">Hassle-Free Swap Plans</h4>
+            <h4 className="font-sans font-bold text-slate-900 dark:text-slate-900 text-sm mb-1 uppercase tracking-tight">Hassle-Free Swap Plans</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Upgrade your gadgets easily. Hand over your older device for an instant valuation and deduct the value from your chosen showroom purchase.</p>
           </div>
         </div>
